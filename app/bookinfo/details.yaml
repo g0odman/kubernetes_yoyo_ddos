@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: details
+spec:
+    replicas: 3
+    selector:
+        matchLabels:
+            app: details
+    template:
+        metadata:
+            name: details
+            labels:
+                app: details
+        spec:
+            containers:
+            - name: details
+              image: danibachar/tester:latest
+              imagePullPolicy: Always # to conserve on pulling can change to not allways pull
+              env:
+              - name: RETURN_VALUE
+                value: "details"
+              ports:
+              - name: http-port
+                containerPort: 8081
+              resources:
+                  requests:
+                      cpu: 200m
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: details
+spec:
+    type: LoadBalancer
+    selector:
+        app: details
+    ports:
+    - port: 80
+      nodePort: 31001
+      targetPort: http-port
+      protocol: TCP
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: details-autoscaler
+spec:
+    scaleTargetRef:
+        apiVersion: extensions/v1beta1
+        kind: Deployment
+        name: details
+    minReplicas: 3
+    maxReplicas: 50
+    targetCPUUtilizationPercentage: 50
