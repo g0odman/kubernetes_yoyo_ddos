@@ -117,7 +117,7 @@ class YoYoAttacker(object):
 
     def query_hpa_api(self) -> None:
         names = ['details-autoscaler', 'rating-autoscaler',
-                 'reviews-autoscaler', 'product']
+                 'reviews-autoscaler', 'product-autoscaler']
         namespace = 'default'
         logging.info('Updating cluster info')
         self.statuses = []
@@ -179,8 +179,8 @@ class YoYoAttacker(object):
             if (self.cpu_load <= 56 and self.active_pods_count > 10):
                 self.finish_attack()
         else:
-            if self.active_pods_count == 4 and index == 3: # and index > 49:
-                logging.info('init first attack')
+            if self.active_pods_count == 4 and index > 3: # and index > 49:
+                logging.info('init attack')
                 self.attack_env.start()
 
         self.query_hpa_api()
@@ -271,7 +271,7 @@ auto_scale_api, cluster_api = authenticate()
 def get_remote_ip() -> str:
     services = cluster_api.list_service_for_all_namespaces()
     for service in services.items:
-        if service.metadata.name == 'exposer':
+        if service.metadata.name == 'product':
             remote_ip = service.status.load_balancer.ingress[0].ip
             remote_port = service.spec.ports[0].port
             target = f'{remote_ip}:{remote_port}'
@@ -312,7 +312,7 @@ class AttackUser(HttpUser):
 
         # self.client.get("/health")
 reg_env = RegularEnvironment(RegularUser, 1, 10)
-attack_env = RegularEnvironment(AttackUser, 7, 1)
+attack_env = RegularEnvironment(AttackUser, 6, 1)
 
 y = YoYoAttacker(remote_ip, auto_scale_api, cluster_api, reg_env, attack_env)
 y.start()

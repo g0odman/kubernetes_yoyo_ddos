@@ -29,10 +29,24 @@ spec:
                   requests:
                       cpu: 200m
 ---
+apiVersion: v1
+kind: Service
+metadata:
+    name: product
+spec:
+    type: LoadBalancer
+    selector:
+        app: product
+    ports:
+    - port: 80
+      nodePort: 31004
+      targetPort: http-port
+      protocol: TCP
+---
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: product
+    name: product-autoscaler
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
