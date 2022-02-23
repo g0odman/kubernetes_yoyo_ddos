@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
     name: reviews
 spec:
-    replicas: 3
+    replicas: 1
     selector:
         matchLabels:
             app: reviews
@@ -15,7 +15,7 @@ spec:
         spec:
             containers:
             - name: reviews
-              image: danibachar/tester:latest
+              image: gcr.io/storied-line-340620/tester:latest
               imagePullPolicy: Always # to conserve on pulling can change to not allways pull
               env:
               env:
@@ -35,12 +35,11 @@ kind: Service
 metadata:
     name: reviews
 spec:
-    type: LoadBalancer
+    type: ClusterIP
     selector:
         app: reviews
     ports:
     - port: 80
-      nodePort: 31002
       targetPort: http-port
       protocol: TCP
 ---
@@ -50,9 +49,10 @@ metadata:
     name: reviews-autoscaler
 spec:
     scaleTargetRef:
-        apiVersion: extensions/v1beta1
+        apiVersion: apps/v1
         kind: Deployment
         name: reviews
-    minReplicas: 3
-    maxReplicas: 50
+    minReplicas: 1
+    maxReplicas: 10
     targetCPUUtilizationPercentage: 50
+
