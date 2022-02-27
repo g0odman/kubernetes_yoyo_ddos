@@ -94,7 +94,5 @@ def load():
 
 
 if __name__ == '__main__':
-    # # threaded=True is a debugging feature, use WSGI for production!
-    # app.run(host='0.0.0.0', port=8081, threaded=False)
-    http_server = WSGIServer(('', 8081), app)
-    http_server.serve_forever()
+    # threaded=True is a debugging feature, use WSGI for production!
+    app.run(host='0.0.0.0', port=8081, threaded=True, processes=3)
