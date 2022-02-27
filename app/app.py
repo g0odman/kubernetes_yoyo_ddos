@@ -50,8 +50,7 @@ async def do_post(session, target, config):
           return await response.text()
 
 async def propogate_request(should_propogate):
-    # dsts = os.environ.get("DEPENDENCIES", "")
-    dsts = "{\"destinations\":[{\"target\":\"http://172.27.131.4:8081/load\",\"request_payload_kb_size\":50,\"config\":{\"propogate\":0, \"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
+    dsts = os.environ.get("DEPENDENCIES", "")
     if dsts == "" or not should_propogate:
         return []
     futures = []
