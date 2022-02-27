@@ -9,3 +9,4 @@ raven[flask]
 cpu-load-generator
 psutil==5.8.0
 twisted==21.7.0
+gevent==21.12.0
