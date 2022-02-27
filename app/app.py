@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
-
-from flask.json import loads
-from requests.api import delete
+from concurrent.futures import thread
 from flask_cors import CORS
-from flask import Flask, request, jsonify
+from flask import Flask, request
 import os
 import sys
-import requests
+import aiohttp
 import asyncio
 import json
-from cpu_load_generator import load_single_core
-from gevent.pywsgi import WSGIServer
+# from cpu_load_generator import load_single_core
 # Hack to alter sys path, so we will run from microservices package
 # This hack will require us to import with absolut path from everywhere in this module
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -33,7 +30,7 @@ async def generate_memory_load(params):
     duration_seconds = params.get("duration_seconds", 0.1)  # def 100ms
     kb_count = params.get("kb_count", 64)  # def 64KB
     l = memory_chunk(kb_count)
-    asyncio.sleep(duration_seconds)
+    await asyncio.sleep(duration_seconds)
     del l
     return ""
 
@@ -45,26 +42,30 @@ async def generate_cpu_load(params):
     load_single_core(core_num=core_num,
                      duration_s=duration_seconds,
                      target_load=cpu_load)
-    asyncio.sleep(duration_seconds)
+    await asyncio.sleep(duration_seconds)
     return ""
 
+async def do_post(session, target, config):
+    async with session.post(target, json=config) as response:
+          return await response.text()
 
-async def propogate_request():
-    dsts = os.environ.get("DEPENDENCIES", "")
-    if dsts == "":
+async def propogate_request(should_propogate):
+    # dsts = os.environ.get("DEPENDENCIES", "")
+    dsts = "{\"destinations\":[{\"target\":\"http://172.27.131.4:8081/load\",\"request_payload_kb_size\":50,\"config\":{\"propogate\":0, \"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
+    if dsts == "" or not should_propogate:
         return []
     futures = []
-    for dst in json.loads(dsts).get("destinations", []):
-        target = dst.get("target", None)
-        if target is None:
-            continue
-        config = dst.get("config", {})
-        payload_kb_size = dst.get("request_payload_kb_size", 10)  # Def 50KB
-        config["dummy_paload_just_for_size"] = memory_chunk(payload_kb_size)
-        f = loop.run_in_executor(None, requests.post, target, None, config)
-        futures.append(f)
-    responses = await asyncio.gather(*futures)
-    return list(filter(lambda t: t != "", map(lambda res: res.text, responses)))
+    desinations = json.loads(dsts).get("destinations", [])
+    async with aiohttp.ClientSession() as session:
+        post_tasks = []
+        for dst in desinations:
+            target = dst.get("target", None)
+            config = dst.get("config", {})
+            payload_kb_size = dst.get("request_payload_kb_size", 10)  # Def 50KB
+            config["dummy_paload_just_for_size"] = memory_chunk(payload_kb_size)
+            post_tasks.append(do_post(session, target, config))
+        responses = await asyncio.gather(*post_tasks)
+        return list(filter(lambda t: t != "", responses))
 
 
 @app.route('/health', methods=['GET'])
@@ -73,26 +74,21 @@ def health():
 
 
 @app.route('/load', methods=['POST'])
-def load():
+async def load():
     load_options = request.json
-    print("running load with options {}".format(load_options))
+    print("running load with options {}".format(str(load_options)[:1000]))
 
-    responses = loop.run_until_complete(asyncio.gather(
-        generate_memory_load(load_options.get('memory_params', {})),
-        generate_cpu_load(load_options.get('cpu_params', {})),
-        propogate_request(),
-    ))
+    await generate_memory_load(load_options.get('memory_params', {}))
+    await generate_cpu_load(load_options.get('cpu_params', {}))
     my_name = os.environ.get("RETURN_VALUE", "NOT_SET")
-    propogated_services = responses[-1]  # Note propogate_request is last
-    res = ""
-    if len(propogated_services) == 0:
-        res = my_name
-    else:
+    res = my_name
+    if load_options.get("propogate", True):    
+        propogated_services = await propogate_request(load_options.get("propogate", True))
         for ps in propogated_services:
-            res += "{} -> {}\n".format(my_name, ps)
+            res += " -> {}\n".format(ps)
     return res
 
 
+
 if __name__ == '__main__':
-    # threaded=True is a debugging feature, use WSGI for production!
-    app.run(host='0.0.0.0', port=8081, threaded=True, processes=3)
+    app.run(host='0.0.0.0', port=8081, threaded=True)
