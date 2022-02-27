@@ -10,6 +10,7 @@ import requests
 import asyncio
 import json
 from cpu_load_generator import load_single_core
+from gevent.pywsgi import WSGIServer
 # Hack to alter sys path, so we will run from microservices package
 # This hack will require us to import with absolut path from everywhere in this module
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -93,5 +94,7 @@ def load():
 
 
 if __name__ == '__main__':
-    # threaded=True is a debugging feature, use WSGI for production!
-    app.run(host='0.0.0.0', port=8081, threaded=False)
+    # # threaded=True is a debugging feature, use WSGI for production!
+    # app.run(host='0.0.0.0', port=8081, threaded=False)
+    http_server = WSGIServer(('', 8081), app)
+    http_server.serve_forever()
