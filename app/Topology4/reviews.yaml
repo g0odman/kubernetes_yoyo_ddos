@@ -1,25 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: details
+    name: reviews
 spec:
     replicas: 1
     selector:
         matchLabels:
-            app: details
+            app: reviews
     template:
         metadata:
-            name: details
+            name: reviews
             labels:
-                app: details
+                app: reviews
         spec:
             containers:
-            - name: details
-              image:  gcr.io/storied-line-340620/tester:latest
+            - name: reviews
+              image: gcr.io/storied-line-340620/tester:latest
               imagePullPolicy: Always # to conserve on pulling can change to not allways pull
               env:
+              env:
               - name: RETURN_VALUE
-                value: "details"
+                value: "reviews"
+              - name: DEPENDENCIES
+                value: "{\"destinations\":[{\"target\":\"http://prices.default.svc.cluster.local/load\",\"request_payload_kb_size\":50,\"config\":{\"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
               ports:
               - name: http-port
                 containerPort: 8081
@@ -30,11 +33,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-    name: details
+    name: reviews
 spec:
     type: ClusterIP
     selector:
-        app: details
+        app: reviews
     ports:
     - port: 80
       targetPort: http-port
@@ -43,12 +46,12 @@ spec:
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: details-autoscaler
+    name: reviews
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: details
+        name: reviews
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 50

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: details
+spec:
+    replicas: 1
+    selector:
+        matchLabels:
+            app: details
+    template:
+        metadata:
+            name: details
+            labels:
+                app: details
+        spec:
+            containers:
+            - name: details
+              image:  gcr.io/storied-line-340620/tester:latest
+              imagePullPolicy: Always # to conserve on pulling can change to not allways pull
+              env:
+              - name: RETURN_VALUE
+                value: "details"
+              ports:
+              - name: http-port
+                containerPort: 8081
+              resources:
+                  requests:
+                      cpu: 200m
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: details
+spec:
+    type: ClusterIP
+    selector:
+        app: details
+    ports:
+    - port: 80
+      targetPort: http-port
+      protocol: TCP
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: details
+spec:
+    scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: details
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 50
+

@@ -20,6 +20,9 @@ spec:
               env:
               - name: RETURN_VALUE
                 value: "rating"
+              - name: DEPENDENCIES
+                value: '{"destinations": [{"target": "http://reviews.default.svc.cluster.local/load", "request_payload_kb_size": 50, "config": {"memory_params": {"duration_seconds": 0.2, "kb_count": 50}, "cpu_params": {"duration_seconds": 0.2, "load": 0.2}}}]}'
+              
               ports:
               - name: http-port
                 containerPort: 8081
@@ -43,7 +46,7 @@ spec:
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: rating-autoscaler
+    name: rating
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
