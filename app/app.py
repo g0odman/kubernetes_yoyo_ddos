@@ -95,14 +95,14 @@ async def propogate_health():
         for dst in desinations:
             target = dst.get("target").replace('/load', '/health')
             config = dst.get("config", {})
-            post_tasks.append(do_get(session, target, {'propogate' : config.get('propogate', 0)}))
+            post_tasks.append(do_get(session, target, {'propogate' : config.get('propogate', True)}))
         responses = await asyncio.gather(*post_tasks)
         return list(filter(lambda t: t != "", responses))
 
 
 @app.route('/health', methods=['GET'])
 async def health():
-    result = await generate_response(propogate_health, int(request.args.get('propogate', 0)))
+    result = await generate_response(propogate_health, int(request.args.get('propogate', True)))
     return result
 
 
