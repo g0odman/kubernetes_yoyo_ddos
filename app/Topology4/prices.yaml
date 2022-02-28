@@ -22,7 +22,7 @@ spec:
               - name: RETURN_VALUE
                 value: "prices"
               - name: DEPENDENCIES
-                value: "{\"destinations\":[{\"target\":\"http://rating.default.svc.cluster.local/load\",\"request_payload_kb_size\":50,\"config\":{\"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
+                value: "{\"destinations\":[{\"target\":\"http://rating.default.svc.cluster.local/load\",\"request_payload_kb_size\":50,\"config\":{\"propogate\":0, \"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
               ports:
               - name: http-port
                 containerPort: 8081

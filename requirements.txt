@@ -1,0 +1,5 @@
+locust==2.8.2
+ratelimit==2.2.1
+kubernetes==22.6.0
+numpy==1.17.4
+gevent==21.12.0

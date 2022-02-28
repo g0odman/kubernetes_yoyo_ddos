@@ -21,7 +21,7 @@ CORS(app)
 
 def memory_chunk(size_in_kb):
     l = []
-    for i in range(0, size_in_kb):
+    for _ in range(0, size_in_kb):
         l.append("*" * 1024)  # 1KB
     return l
 
@@ -45,48 +45,78 @@ async def generate_cpu_load(params):
     await asyncio.sleep(duration_seconds)
     return ""
 
+
 async def do_post(session, target, config):
     async with session.post(target, json=config) as response:
-          return await response.text()
+        return await response.text()
 
-async def propogate_request(should_propogate):
+
+async def do_get(session, target, params):
+    async with session.get(target, params=params) as response:
+        return await response.text()
+
+
+async def propogate_request():
     dsts = os.environ.get("DEPENDENCIES", "")
-    if dsts == "" or not should_propogate:
+    if dsts == "":
         return []
-    futures = []
     desinations = json.loads(dsts).get("destinations", [])
     async with aiohttp.ClientSession() as session:
         post_tasks = []
         for dst in desinations:
             target = dst.get("target", None)
             config = dst.get("config", {})
-            payload_kb_size = dst.get("request_payload_kb_size", 10)  # Def 50KB
-            config["dummy_paload_just_for_size"] = memory_chunk(payload_kb_size)
+            payload_kb_size = dst.get(
+                "request_payload_kb_size", 10)  # Def 50KB
+            config["dummy_paload_just_for_size"] = memory_chunk(
+                payload_kb_size)
             post_tasks.append(do_post(session, target, config))
         responses = await asyncio.gather(*post_tasks)
         return list(filter(lambda t: t != "", responses))
 
 
+async def generate_response(propogate_function, should_propogate):
+    my_name = os.environ.get("RETURN_VALUE", "NOT_SET")
+    res = my_name
+    if should_propogate:
+        propogated_services = await propogate_function()
+        for ps in propogated_services:
+            res += " -> {}\n".format(ps)
+    return res
+
+
+async def propogate_health():
+    dsts = os.environ.get("DEPENDENCIES", "")
+    if dsts == "":
+        return []
+    desinations = json.loads(dsts).get("destinations", [])
+    async with aiohttp.ClientSession() as session:
+        post_tasks = []
+        for dst in desinations:
+            target = dst.get("target").replace('/load', '/health')
+            config = dst.get("config", {})
+            post_tasks.append(do_get(session, target, {'propogate' : config.get('propogate', 0)}))
+        responses = await asyncio.gather(*post_tasks)
+        return list(filter(lambda t: t != "", responses))
+
+
 @app.route('/health', methods=['GET'])
-def health():
-    return 'OK'
+async def health():
+    result = await generate_response(propogate_health, int(request.args.get('propogate', 0)))
+    return result
 
 
 @app.route('/load', methods=['POST'])
 async def load():
     load_options = request.json
+    assert isinstance(load_options, dict)
     print("running load with options {}".format(str(load_options)[:1000]))
-
-    await generate_memory_load(load_options.get('memory_params', {}))
-    await generate_cpu_load(load_options.get('cpu_params', {}))
-    my_name = os.environ.get("RETURN_VALUE", "NOT_SET")
-    res = my_name
-    if load_options.get("propogate", True):    
-        propogated_services = await propogate_request(load_options.get("propogate", True))
-        for ps in propogated_services:
-            res += " -> {}\n".format(ps)
-    return res
-
+    task2 = asyncio.create_task(generate_cpu_load(load_options.get('cpu_params', {})))
+    task3 = asyncio.create_task(generate_memory_load(load_options.get('memory_params', {})))
+    response = await generate_response(propogate_request, load_options.get("propogate", True))
+    await task2
+    await task3
+    return response
 
 
 if __name__ == '__main__':

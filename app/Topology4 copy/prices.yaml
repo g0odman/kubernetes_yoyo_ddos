@@ -1,27 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: product
+    name: prices
 spec:
     replicas: 1
     selector:
         matchLabels:
-            app: product
+            app: prices
     template:
         metadata:
-            name: product
+            name: prices
             labels:
-                app: product
+                app: prices
         spec:
             containers:
-            - name: product
-              image:  gcr.io/storied-line-340620/tester:latest
+            - name: prices
+              image: gcr.io/storied-line-340620/tester:latest
               imagePullPolicy: Always # to conserve on pulling can change to not allways pull
               env:
+              env:
               - name: RETURN_VALUE
-                value: "product"
+                value: "prices"
               - name: DEPENDENCIES
-                value: '{"destinations": [{"target": "http://details.default.svc.cluster.local/load", "request_payload_kb_size": 50, "config": {"memory_params": {"duration_seconds": 0.2, "kb_count": 50}, "cpu_params": {"duration_seconds": 0.2, "load": 0.2}}}]}'
+                value: "{\"destinations\":[{\"target\":\"http://rating.default.svc.cluster.local/load\",\"request_payload_kb_size\":50,\"config\":{\"propogate\":0, \"memory_params\":{\"duration_seconds\":0.2,\"kb_count\":50},\"cpu_params\":{\"duration_seconds\":0.2,\"load\":0.2}}}]}"
               ports:
               - name: http-port
                 containerPort: 8081
@@ -32,26 +33,26 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-    name: product
+    name: prices
 spec:
-    type: LoadBalancer
+    type: ClusterIP
     selector:
-        app: product
+        app: prices
     ports:
     - port: 80
-      nodePort: 31005
       targetPort: http-port
       protocol: TCP
 ---
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: product
+    name: prices
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: product
+        name: prices
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 50
+

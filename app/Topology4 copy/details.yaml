@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: product
+    name: details
 spec:
     replicas: 1
     selector:
         matchLabels:
-            app: product
+            app: details
     template:
         metadata:
-            name: product
+            name: details
             labels:
-                app: product
+                app: details
         spec:
             containers:
-            - name: product
+            - name: details
               image:  gcr.io/storied-line-340620/tester:latest
               imagePullPolicy: Always # to conserve on pulling can change to not allways pull
               env:
               - name: RETURN_VALUE
-                value: "product"
+                value: "details"
               - name: DEPENDENCIES
-                value: '{"destinations": [{"target": "http://details.default.svc.cluster.local/load", "request_payload_kb_size": 50, "config": {"memory_params": {"duration_seconds": 0.2, "kb_count": 50}, "cpu_params": {"duration_seconds": 0.2, "load": 0.2}}}]}'
+                value: '{"destinations": [{"target": "http://rating.default.svc.cluster.local/load", "request_payload_kb_size": 50, "config": {"memory_params": {"duration_seconds": 0.2, "kb_count": 50}, "cpu_params": {"duration_seconds": 0.2, "load": 0.2}}}]}'
               ports:
               - name: http-port
                 containerPort: 8081
@@ -32,26 +32,26 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-    name: product
+    name: details
 spec:
-    type: LoadBalancer
+    type: ClusterIP
     selector:
-        app: product
+        app: details
     ports:
     - port: 80
-      nodePort: 31005
       targetPort: http-port
       protocol: TCP
 ---
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-    name: product
+    name: details
 spec:
     scaleTargetRef:
         apiVersion: apps/v1
         kind: Deployment
-        name: product
+        name: details
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 50
+
