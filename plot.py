@@ -1,3 +1,4 @@
+import sys
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -23,7 +24,7 @@ TARGET_SERVICES = ['details', 'rating', 'reviews', 'product', 'prices']
 times_key, response_times_key, power_key, pods_key, cpu_key = HEADERS
 
 # Data for plotting
-df = pd.read_csv(os.path.join(os.path.dirname(__file__), '1646008033.5832913.table.csv'))
+df = pd.read_csv(os.path.join(os.path.dirname(__file__), sys.argv[1]))
 
 
 def transpose_list(l):
@@ -59,7 +60,7 @@ def plt_combine():
     )
     pod_count.set(
         ylabel='Pod Count',
-        ylim=-1
+        ylim=0
     )
     cpu_count.set(
         xlabel='Time',
