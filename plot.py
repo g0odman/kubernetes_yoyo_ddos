@@ -23,8 +23,9 @@ TARGET_SERVICES = ['details', 'rating', 'reviews', 'product', 'prices']
 
 times_key, response_times_key, power_key, pods_key, cpu_key = HEADERS
 
+target_path = os.path.join(os.path.dirname(__file__), sys.argv[1])
 # Data for plotting
-df = pd.read_csv(os.path.join(os.path.dirname(__file__), sys.argv[1]))
+df = pd.read_csv(target_path)
 
 
 def transpose_list(l):
@@ -72,4 +73,4 @@ def plt_combine():
 
 plt_combine()
 plt.gcf().autofmt_xdate()
-plt.show()
+plt.savefig(target_path.replace('csv', 'png'))
