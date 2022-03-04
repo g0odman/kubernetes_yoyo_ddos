@@ -23,7 +23,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 csv_file_name = os.path.join(
     dir_path, f"{time.time()}.table.csv")
 
-TARGET_SERVICES = ['details', 'rating', 'reviews', 'product', 'prices']
+TARGET_SERVICES = ['details', 'rating', 'reviews', 'product']
 HEADERS = [
     'time',
     'response_time',
@@ -33,8 +33,6 @@ HEADERS = [
 ]
 
 
-@sleep_and_retry
-@limits(calls=1, period=1)
 def send_probe(url: str) -> float:
     try:
         response = requests.get(url, timeout=10)
@@ -71,6 +69,7 @@ class YoYoAttacker(object):
         self.start_time = datetime.datetime.now(tz=tzutc())
         self.query_hpa_api()
         self.response_time = self.get_response_time()
+        self.last_attack_time = None
 
     def create_envs(self):
         class AttackUser(HttpUser):
@@ -80,8 +79,8 @@ class YoYoAttacker(object):
             @task
             def my_task(self):
                 a = {
-                    "memory_params": {"duration_seconds": 0.2,"kb_count": 50},
-                    "cpu_params": {"duration_seconds": 0.2,"load": 0.2}
+                    "memory_params": {"duration_seconds": 0.2, "kb_count": 50},
+                    "cpu_params": {"duration_seconds": 0.2, "load": 0.2}
                 }
                 self.client.post("/load", json=a)
 
@@ -97,7 +96,10 @@ class YoYoAttacker(object):
         services = self.cluster_api.list_service_for_all_namespaces()
         for service in services.items:
             if service.metadata.name == 'product':
-                remote_ip = service.status.load_balancer.ingress[0].ip
+                ingress = service.status.load_balancer.ingress
+                if not ingress:
+                    continue
+                remote_ip = ingress[0].ip
                 remote_port = service.spec.ports[0].port
                 target = f'{remote_ip}:{remote_port}'
                 logging.info(f'Found remote IP at {remote_ip}:{remote_port}')
@@ -123,7 +125,7 @@ class YoYoAttacker(object):
 
     def query_hpa_api(self) -> None:
         self.get_statuses()
-    
+
     def get_nodes_count(self):
         nodes_count = len(list(self.cluster_api.list_node().items))
         return nodes_count
@@ -170,13 +172,23 @@ class YoYoAttacker(object):
         # Checking
         if self.is_attacking:
             # Handle attack testing on cool down
-            if (self.get_average_cpu_load() <= 56 and active_pods_count > 10):
+            if (self.get_max_cpu_load() <= 60 and active_pods_count > 10) and self.seconds_since_last_attack() > 30:
                 self.finish_attack()
+                self.last_attack_time = datetime.datetime.now()
         else:
             if active_pods_count == self.service_count() and index > 10:  # and index > 49:
                 self.attack_env.start()
+                self.last_attack_time = datetime.datetime.now()
+            if self.seconds_since_last_attack() > 200:
+                self.attack_env.start()
+                self.last_attack_time = datetime.datetime.now()
 
         return response_time
+
+    def seconds_since_last_attack(self):
+        if not self.last_attack_time:
+            return 0
+        return (datetime.datetime.now() - self.last_attack_time).seconds
 
     def get_last_scale_time(self) -> datetime.datetime:
         latest_scale_time = self.start_time
@@ -188,9 +200,9 @@ class YoYoAttacker(object):
     def get_current_replicas(self) -> List[int]:
         return [status.current_replicas for status in self.statuses]
 
-    def get_average_cpu_load(self) -> float:
-        return sum(self.get_cpu_loads()) / self.service_count()
-    
+    def get_max_cpu_load(self) -> float:
+        return max(self.get_cpu_loads())
+
     def get_cpu_loads(self) -> List[float]:
         return [status.current_cpu_utilization_percentage for status in self.statuses]
 
@@ -201,7 +213,8 @@ class YoYoAttacker(object):
             min(round(self.response_time, 1), 5),
             ' '.join(map(str, self.get_current_replicas())),
             ' '.join(map(str, self.get_cpu_loads())),
-            self.reg_env.count + (self.attack_env.count if self.is_attacking else 0)
+            self.reg_env.count + \
+            (self.attack_env.count if self.is_attacking else 0)
         ]
         return stats
 
