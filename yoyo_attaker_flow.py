@@ -1,4 +1,5 @@
 import json
+import sys
 from ratelimit import limits, sleep_and_retry
 from locust.log import setup_logging
 from locust.env import Environment
@@ -20,10 +21,13 @@ import gevent.monkey
 gevent.monkey.patch_all()
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-csv_file_name = os.path.join(
-    dir_path, f"{time.time()}.table.csv")
 
-TARGET_SERVICES = ['details', 'rating', 'reviews', 'product']
+TOPOLOGY_TO_SERVICES_MAP = {
+    'TOPOLOGY1' : ['details', 'rating', 'reviews', 'product', 'prices'],
+    'TOPOLOGY2' : ['details', 'rating', 'reviews', 'product'],
+    'TOPOLOGY4' : ['details', 'rating', 'reviews', 'product', 'prices'],
+}
+
 HEADERS = [
     'time',
     'response_time',
@@ -61,15 +65,17 @@ class RegularEnvironment(object):
 
 
 class YoYoAttacker(object):
-    def __init__(self, services: List[str]) -> None:
+    def __init__(self, topology_name: str) -> None:
         self.authenticate()
         self.remote_ip = self.get_remote_ip()
         self.create_envs()
-        self.services = services
+        self.services = TOPOLOGY_TO_SERVICES_MAP[topology_name]
         self.start_time = datetime.datetime.now(tz=tzutc())
         self.query_hpa_api()
         self.response_time = self.get_response_time()
         self.last_attack_time = None
+        self.output_path = os.path.join(dir_path, f"{topology_name}.csv")
+        
 
     def create_envs(self):
         class AttackUser(HttpUser):
@@ -138,7 +144,7 @@ class YoYoAttacker(object):
 
     def start(self) -> None:
         self.wait_for_start()
-        with open(csv_file_name, 'w') as f:
+        with open(self.output_path, 'w') as f:
             w = csv.writer(f, delimiter=',')
             w.writerow(HEADERS)
             self.loop(w)
@@ -171,17 +177,16 @@ class YoYoAttacker(object):
             active_pods_count = self.get_active_pods_count()
         # Checking
         if self.is_attacking:
-            # Handle attack testing on cool down
-            if (self.get_max_cpu_load() <= 60 and active_pods_count > 10) and self.seconds_since_last_attack() > 30:
+            if (self.get_max_cpu_load() <= 60 and active_pods_count > 10):#  and self.seconds_since_last_attack() > 30:
                 self.finish_attack()
                 self.last_attack_time = datetime.datetime.now()
         else:
             if active_pods_count == self.service_count() and index > 10:  # and index > 49:
                 self.attack_env.start()
                 self.last_attack_time = datetime.datetime.now()
-            if self.seconds_since_last_attack() > 200:
-                self.attack_env.start()
-                self.last_attack_time = datetime.datetime.now()
+            # if self.seconds_since_last_attack() > 200:
+            #     self.attack_env.start()
+            #     self.last_attack_time = datetime.datetime.now()
 
         return response_time
 
@@ -239,6 +244,5 @@ class YoYoAttacker(object):
 
 if __name__ == '__main__':
     setup_logging("INFO", None)
-
-    y = YoYoAttacker(TARGET_SERVICES)
+    y = YoYoAttacker(sys.argv[1])
     y.start()
